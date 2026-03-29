@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>MyExpense India — COMPLETE TEST</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
+<script>
+var MOCK_DB = {
+  transactions: [
+    {date:'2026-03-01',description:'SALARY CREDIT',amount:95000,category:'Salary',type:'INCOME',paymentMode:'NetBanking',notes:'',enteredBy:'User1',month:'Mar-2026'},
+    {date:'2026-03-05',description:'FREELANCE PROJECT',amount:15000,category:'Freelance/Business',type:'INCOME',paymentMode:'UPI',notes:'',enteredBy:'User2',month:'Mar-2026'},
+    {date:'2026-03-10',description:'ELECTRICITY BILL',amount:2800,category:'Electricity Bill',type:'EXPENSE',paymentMode:'Card',notes:'',enteredBy:'User1',month:'Mar-2026'},
+    {date:'2026-03-18',description:'RENT MARCH',amount:25000,category:'Rent',type:'EXPENSE',paymentMode:'NetBanking',notes:'',enteredBy:'User1',month:'Mar-2026'},
+    {date:'2026-03-23',description:'PETROL HP',amount:1500,category:'Petrol/Diesel',type:'EXPENSE',paymentMode:'Card',notes:'',enteredBy:'User2',month:'Mar-2026'},
+    {date:'2026-03-24',description:'BIGBASKET GROCERY',amount:2350,category:'Groceries/Kirana',type:'EXPENSE',paymentMode:'UPI',notes:'Weekly',enteredBy:'User1',month:'Mar-2026'},
+    {date:'2026-03-25',description:'SWIGGY ORDER',amount:450,category:'Online Food Delivery',type:'EXPENSE',paymentMode:'UPI',notes:'',enteredBy:'User1',month:'Mar-2026'},
+  ],
+  customCategories: []
+};
+var INDIA_CATS_DATA = [
+  {n:'Groceries/Kirana',i:'\uD83D\uDED2',t:'expense',pop:true},{n:'Online Food Delivery',i:'\uD83C\uDF71',t:'expense',pop:true},
+  {n:'Eating Out/Restaurant',i:'\uD83C\uDF7D\uFE0F',t:'expense',pop:true},{n:'Petrol/Diesel',i:'\u26FD',t:'expense',pop:true},
+  {n:'Auto/Cab/Ola/Uber',i:'\uD83D\uDE95',t:'expense',pop:true},{n:'Rent',i:'\uD83C\uDFE0',t:'expense',pop:true},
+  {n:'Electricity Bill',i:'\u26A1',t:'expense',pop:true},{n:'Mobile Recharge',i:'\uD83D\uDCF1',t:'expense',pop:true},
+  {n:'Medical/Pharmacy',i:'\uD83D\uDC8A',t:'expense',pop:true},{n:'EMI/Loan Payment',i:'\uD83C\uDFE6',t:'expense',pop:true},
+  {n:'Online Shopping',i:'\uD83D\uDECD\uFE0F',t:'expense',pop:true},{n:'Miscellaneous',i:'\uD83D\uDCE6',t:'expense'},
+  {n:'Subscriptions (OTT/Apps)',i:'\uD83C\uDFA7',t:'expense'},{n:'Investments/SIP',i:'\uD83D\uDCC8',t:'expense'},
+  {n:'Clothing & Footwear',i:'\uD83D\uDC55',t:'expense'},{n:'Movie/Entertainment',i:'\uD83C\uDFAC',t:'expense'},
+  {n:'Personal Care/Salon',i:'\uD83D\uDC84',t:'expense'},
+  {n:'Salary',i:'\uD83D\uDCBC',t:'income',pop:true},{n:'Freelance/Business',i:'\uD83D\uDCBB',t:'income'},
+  {n:'Cashback/Refund',i:'\uD83D\uDD04',t:'income'},{n:'Other Income',i:'\uD83D\uDCB0',t:'income'},
+];
+var MOCK_BUDGETS = {'Rent':25000,'Groceries/Kirana':3000,'Electricity Bill':3000,'Petrol/Diesel':2000,'Online Food Delivery':1000};
+var MOCK_USER_NAMES = {user1:'User 1',user2:'User 2'};
+var MOCK_KW_MAP = [
+  ['SWIGGY','Online Food Delivery'],['ZOMATO','Online Food Delivery'],
+  ['BIGBASKET','Groceries/Kirana'],['BLINKIT','Groceries/Kirana'],['ZEPTO','Groceries/Kirana'],
+  ['OLA','Auto/Cab/Ola/Uber'],['UBER','Auto/Cab/Ola/Uber'],['RAPIDO','Auto/Cab/Ola/Uber'],
+  ['PETROL','Petrol/Diesel'],['DIESEL','Petrol/Diesel'],
+  ['NETFLIX','Subscriptions (OTT/Apps)'],['HOTSTAR','Subscriptions (OTT/Apps)'],['SPOTIFY','Subscriptions (OTT/Apps)'],
+  ['AMAZON','Online Shopping'],['FLIPKART','Online Shopping'],
+  ['APOLLO','Medical/Pharmacy'],['PHARMEASY','Medical/Pharmacy'],
+];
+var INCOME_KW = ['SALARY','SAL CR','NEFT CR','RTGS CR','INTEREST','DIVIDEND','CASHBACK','REFUND'];
+var google = { script: { run: {
+  _success: null, _failure: null,
+  withSuccessHandler: function(fn) { this._success = fn; return this; },
+  withFailureHandler: function(fn) { this._failure = fn; return this; },
+  initApp: function() { this._success({ok:true, sheetUrl:'#mock-sheet', driveUrl:'#mock-drive', driveName:'MyExpense India', currentMonth:'Mar-2026', userEmail:'test@gmail.com', userName:'test'}); },
+  getCategoryList: function() {
+    var merged = INDIA_CATS_DATA.concat(MOCK_DB.customCategories);
+    this._success(JSON.stringify(merged));
+  },
+  getAvailableMonths: function() { this._success(['Feb-2026','Mar-2026']); },
+  getUserNames: function() { this._success(MOCK_USER_NAMES); },
+  saveUserNames: function(json) { var d=JSON.parse(json); MOCK_USER_NAMES.user1=d.user1||'User 1'; MOCK_USER_NAMES.user2=d.user2||'User 2'; this._success({success:true}); },
+  getUserInfo: function() { this._success({email:'test@gmail.com',name:'test'}); },
+  suggestCategory: function(desc) {
+    var u = (desc||'').toUpperCase();
+    for(var i=0;i<INCOME_KW.length;i++)
+      if(u.includes(INCOME_KW[i])) {
+        var cat = u.includes('SALARY')?'Salary':u.includes('INTEREST')?'Interest/Dividend':'Other Income';
+        this._success({category:cat, confidence:'auto', type:'INCOME'}); return;
+      }
+    for(var j=0;j<MOCK_KW_MAP.length;j++)
+      if(u.includes(MOCK_KW_MAP[j][0])) { this._success({category:MOCK_KW_MAP[j][1], confidence:'exact', type:'EXPENSE'}); return; }
+    this._success({category:'Miscellaneous', confidence:'none', type:'EXPENSE'});
+  },
+  addTransaction: function(json) {
+    var d = JSON.parse(json);
+    var dateStr = d.date || new Date().toISOString().slice(0,10);
+    var mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var dt = new Date(dateStr);
+    var month = mn[dt.getMonth()] + '-' + dt.getFullYear();
+    MOCK_DB.transactions.push({
+      date: dateStr, description: (d.description||'').toUpperCase().trim(),
+      amount: parseFloat(d.amount)||0, category: d.category||'Miscellaneous',
+      type: d.type||'EXPENSE', paymentMode: d.paymentMode||'UPI',
+      notes: d.notes||'', enteredBy: d.enteredBy||'User1', month: month
+    });
+    this._success({success:true});
+  },
+  addCustomCategory: function(json) {
+    var d = JSON.parse(json);
+    MOCK_DB.customCategories.push({n:d.name, i:d.icon||'\uD83D\uDCCC', t:d.type||'expense'});
+    console.log('[Mock] Custom category added:', d.name);
+    this._success({success:true});
+  },
+  getCustomCategories: function() {
+    this._success(MOCK_DB.customCategories);
+  },
+  getTransactions: function(month) {
+    var tgt = month || 'Mar-2026';
+    var rows = MOCK_DB.transactions
+      .map(function(t,i) { return {t:t, idx:i}; })
+      .filter(function(o) { return o.t.month === tgt; })
+      .map(function(o) {
+        var t = o.t;
+        return { row: o.idx, date: t.date, description: t.description, amount: t.amount,
+          category: t.category, type: t.type, paymentMode: t.paymentMode,
+          notes: t.notes, enteredBy: t.enteredBy };
+      });
+    rows.reverse();
+    this._success(JSON.stringify(rows));
+  },
+  deleteTransaction: function(idx) {
+    if(idx >= 0 && idx < MOCK_DB.transactions.length) {
+      MOCK_DB.transactions.splice(idx, 1);
+      this._success({success:true});
+    } else { this._success({success:false, error:'Invalid index'}); }
+  },
+  getDashboardData: function(month) {
+    var tgt = month || 'Mar-2026';
+    var inc={}, exp={};
+    MOCK_DB.transactions.forEach(function(t) {
+      if(t.month !== tgt) return;
+      if(t.type === 'INCOME') inc[t.category] = (inc[t.category]||0) + t.amount;
+      else exp[t.category] = (exp[t.category]||0) + t.amount;
+    });
+    var totInc = Object.values(inc).reduce(function(a,b){return a+b;}, 0);
+    var totExp = Object.values(exp).reduce(function(a,b){return a+b;}, 0);
+    var sav = totInc - totExp;
+    this._success(JSON.stringify({
+      income: totInc, expenses: totExp, savings: sav,
+      savingsRate: totInc > 0 ? ((sav/totInc)*100).toFixed(1) : '0',
+      month: tgt,
+      incomeBreakdown: Object.entries(inc).map(function(e){return {category:e[0],amount:e[1]};}).sort(function(a,b){return b.amount-a.amount;}),
+      expenseBreakdown: Object.entries(exp).map(function(e){return {category:e[0],amount:e[1],budget:MOCK_BUDGETS[e[0]]||0};}).sort(function(a,b){return b.amount-a.amount;})
+    }));
+  },
+  getDashboardDataByDateRange: function(startDate, endDate) {
+    var start = new Date(startDate), end = new Date(endDate);
+    var inc={}, exp={};
+    MOCK_DB.transactions.forEach(function(t) {
+      var td = new Date(t.date);
+      if(td < start || td > end) return;
+      if(t.type === 'INCOME') inc[t.category] = (inc[t.category]||0) + t.amount;
+      else exp[t.category] = (exp[t.category]||0) + t.amount;
+    });
+    var totInc = Object.values(inc).reduce(function(a,b){return a+b;}, 0);
+    var totExp = Object.values(exp).reduce(function(a,b){return a+b;}, 0);
+    var sav = totInc - totExp;
+    this._success(JSON.stringify({
+      income: totInc, expenses: totExp, savings: sav,
+      savingsRate: totInc > 0 ? ((sav/totInc)*100).toFixed(1) : '0',
+      dateRange: startDate + ' to ' + endDate,
+      incomeBreakdown: Object.entries(inc).map(function(e){return {category:e[0],amount:e[1]};}).sort(function(a,b){return b.amount-a.amount;}),
+      expenseBreakdown: Object.entries(exp).map(function(e){return {category:e[0],amount:e[1],budget:MOCK_BUDGETS[e[0]]||0};}).sort(function(a,b){return b.amount-a.amount;})
+    }));
+  },
+  getTransactionsByDateRange: function(startDate, endDate) {
+    var start = new Date(startDate), end = new Date(endDate);
+    var rows = MOCK_DB.transactions
+      .map(function(t,i) { return {t:t, idx:i}; })
+      .filter(function(o) { var td=new Date(o.t.date); return td>=start && td<=end; })
+      .map(function(o) {
+        var t = o.t;
+        return { row: o.idx, date: t.date, description: t.description, amount: t.amount,
+          category: t.category, type: t.type, paymentMode: t.paymentMode,
+          notes: t.notes, enteredBy: t.enteredBy };
+      });
+    rows.reverse();
+    this._success(JSON.stringify(rows));
+  },
+  getBudget: function(month) {
+    var tgt = month || 'Mar-2026';
+    this._success({budget: [], month: tgt, empty: true, suggested: [
+      {category:'Rent', amount:25000},{category:'Groceries/Kirana', amount:3000},
+      {category:'Electricity Bill', amount:3000},{category:'Petrol/Diesel', amount:2000},
+      {category:'Online Food Delivery', amount:1000}
+    ]});
+  },
+  saveBudget: function(month, json) {
+    console.log('[Mock] Budget saved for ' + month + ':', json);
+    this._success({success:true});
+  },
+  getMonthlySummary: function(month) {
+    var tgt = month || 'Mar-2026';
+    var inc={}, exp={};
+    MOCK_DB.transactions.forEach(function(t) {
+      if(t.month !== tgt) return;
+      if(t.type === 'INCOME') inc[t.category] = (inc[t.category]||0) + t.amount;
+      else exp[t.category] = (exp[t.category]||0) + t.amount;
+    });
+    var totInc = Object.values(inc).reduce(function(a,b){return a+b;}, 0);
+    var totExp = Object.values(exp).reduce(function(a,b){return a+b;}, 0);
+    var sav = totInc - totExp;
+    var sr = totInc > 0 ? ((sav/totInc)*100).toFixed(1) : 0;
+    var expArr = Object.entries(exp).map(function(e){return {category:e[0],amount:e[1]};}).sort(function(a,b){return b.amount-a.amount;});
+    var tips = [];
+    if(parseFloat(sr) >= 20) tips.push({icon:'\u2705',tip:'Excellent! Savings rate '+sr+'%. Consider increasing SIP contributions.'});
+    else tips.push({icon:'\u26A0\uFE0F',tip:'Savings rate '+sr+'% is low. Aim for at least 20%.'});
+    if(expArr.length) tips.push({icon:'\uD83D\uDD0D',tip:'Highest spend: "'+expArr[0].category+'" at \u20B9'+Math.round(expArr[0].amount).toLocaleString('en-IN')+'.'});
+    tips.push({icon:'\uD83D\uDCB0',tip:'Auto-debit SIP on 1st of month. \u20B91K/month in NIFTY 50 grows to \u20B923L in 30 years at 12% CAGR.'});
+    this._success({month:tgt, totalIncome:totInc, totalExpense:totExp, savings:sav, savingsRate:sr, tips:tips});
+  },
+  exportMonthlyReport: function(month) {
+    console.log('[Mock] Exported report for ' + month + ' to Drive');
+    this._success({success:true, fileName:'MyExpense_Report_'+month+'.txt', folderUrl:'#mock-drive'});
+  },
+  getDriveInfo: function() {
+    this._success({ok:true, folderName:'MyExpense India', folderUrl:'#mock-drive', fileCount:3});
+  }
+}}};
+</script>
+<style>
+
+:root {
+  --bg: #f5f6fa; --card: #ffffff; --text: #1a1a2e; --sub: #636e72;
+  --primary: #6c5ce7; --primary-light: #a29bfe;
+  --green: #00b894; --green-bg: #e6fff9;
+  --red: #e74c3c; --red-bg: #fef0ef;
+  --orange: #f39c12; --blue: #0984e3;
+  --border: #e9ecef; --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --radius: 14px; --radius-sm: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text);
+  min-height:100vh; padding-bottom:80px; -webkit-tap-highlight-color:transparent; }
+
+/* ───── Loading overlay ───── */
+#loading { position:fixed; inset:0; background:var(--bg); z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+#loading .spinner { width:40px; height:40px; border:4px solid var(--border);
+  border-top-color:var(--primary); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ───── Bottom nav (large, easy-tap) ───── */
+.bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--card);
+  border-top:1px solid var(--border); display:flex; z-index:100;
+  padding:8px 4px env(safe-area-inset-bottom,10px); box-shadow:0 -4px 16px rgba(0,0,0,.10); }
+.nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:10px 0; border:none; background:none; color:var(--sub); font-size:12px;
+  font-weight:600; cursor:pointer; transition:.2s; border-radius:12px; margin:0 3px; }
+.nav-btn .nav-icon { font-size:26px; }
+.nav-btn:active { background:rgba(108,92,231,.08); }
+.nav-btn.active { color:var(--primary); background:rgba(108,92,231,.1); }
+.nav-btn.active .nav-icon { transform:scale(1.15); }
+
+/* ───── Sections ───── */
+.section { display:none; max-width:480px; margin:0 auto; padding:16px; }
+.section.active { display:block; }
+
+/* ───── Header ───── */
+.sec-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.sec-title { font-size:20px; font-weight:700; }
+.month-pill { background:var(--primary); color:#fff; padding:6px 14px; border-radius:20px;
+  font-size:13px; font-weight:600; border:none; cursor:pointer; }
+
+/* ───── Cards ───── */
+.card { background:var(--card); border-radius:var(--radius); padding:16px;
+  box-shadow:var(--shadow); margin-bottom:14px; }
+
+/* ───── LOG TAB ───── */
+.amount-row { display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+.type-toggle { display:flex; border-radius:var(--radius-sm); overflow:hidden; border:2px solid var(--border); flex-shrink:0; }
+.type-btn { padding:10px 16px; border:none; font-size:14px; font-weight:600; cursor:pointer;
+  background:var(--card); color:var(--sub); transition:.2s; }
+.type-btn.active-exp { background:var(--red); color:#fff; }
+.type-btn.active-inc { background:var(--green); color:#fff; }
+.amount-input-wrap { flex:1; position:relative; }
+.amount-input-wrap .rupee { position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  font-size:20px; font-weight:700; color:var(--sub); }
+#amountInput { width:100%; padding:12px 14px 12px 34px; border:2px solid var(--border);
+  border-radius:var(--radius-sm); font-size:24px; font-weight:700; color:var(--text);
+  background:var(--card); outline:none; transition:.2s; }
+#amountInput:focus { border-color:var(--primary); }
+#amountInput::placeholder { color:#ccc; font-weight:400; }
+
+.desc-input { width:100%; padding:10px 14px; border:2px solid var(--border);
+  border-radius:var(--radius-sm); font-size:15px; background:var(--card);
+  outline:none; margin-bottom:12px; transition:.2s; }
+.desc-input:focus { border-color:var(--primary); }
+
+.suggest-bar { display:none; margin:-8px 0 12px; padding:8px 12px;
+  background:#fff9db; border-radius:8px; font-size:13px; color:#856404; }
+
+.section-label { font-size:12px; font-weight:600; color:var(--sub);
+  text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+
+/* Category chips */
+.cat-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.cat-chip { display:flex; align-items:center; gap:5px; padding:7px 12px;
+  border-radius:20px; border:2px solid var(--border); background:var(--card);
+  font-size:13px; font-weight:500; cursor:pointer; transition:.2s; white-space:nowrap; }
+.cat-chip:hover { border-color:var(--primary-light); }
+.cat-chip.selected { background:var(--primary); color:#fff; border-color:var(--primary); }
+.cat-chip .chip-icon { font-size:16px; }
+.cat-expand { padding:7px 14px; border-radius:20px; border:2px dashed var(--border);
+  background:none; font-size:13px; color:var(--sub); cursor:pointer; }
+
+/* Payment mode */
+.pay-grid { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.pay-chip { padding:7px 14px; border-radius:20px; border:2px solid var(--border);
+  background:var(--card); font-size:13px; font-weight:500; cursor:pointer; transition:.2s; }
+.pay-chip.selected { background:var(--blue); color:#fff; border-color:var(--blue); }
+
+/* User toggle */
+.user-row { display:flex; gap:8px; align-items:center; margin-bottom:14px; }
+.user-btn { padding:7px 14px; border-radius:20px; border:2px solid var(--border);
+  background:var(--card); font-size:13px; font-weight:500; cursor:pointer; transition:.2s; }
+.user-btn.selected { background:var(--text); color:#fff; border-color:var(--text); }
+
+/* Add button */
+.add-btn { width:100%; padding:14px; border:none; border-radius:var(--radius-sm);
+  font-size:16px; font-weight:700; cursor:pointer; transition:.2s; }
+.add-btn.expense-mode { background:var(--red); color:#fff; }
+.add-btn.income-mode { background:var(--green); color:#fff; }
+.add-btn:disabled { opacity:.5; cursor:not-allowed; }
+.add-btn:active:not(:disabled) { transform:scale(.98); }
+
+/* Notes toggle */
+.notes-toggle { text-align:center; margin-bottom:10px; }
+.notes-link { color:var(--primary); font-size:13px; cursor:pointer; border:none; background:none; font-weight:500; }
+#notesWrap { display:none; margin-bottom:12px; }
+#notesInput { width:100%; padding:10px 14px; border:2px solid var(--border);
+  border-radius:var(--radius-sm); font-size:14px; background:var(--card);
+  outline:none; resize:none; height:60px; }
+
+/* Today's entries */
+.today-header { display:flex; justify-content:space-between; align-items:center; margin:20px 0 10px; }
+.today-total { font-size:13px; color:var(--sub); }
+.entry-list { display:flex; flex-direction:column; gap:8px; }
+.entry-card { display:flex; align-items:center; gap:12px; padding:12px 14px;
+  background:var(--card); border-radius:var(--radius-sm); box-shadow:var(--shadow); }
+.entry-icon { font-size:24px; flex-shrink:0; }
+.entry-info { flex:1; min-width:0; }
+.entry-desc { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.entry-meta { font-size:12px; color:var(--sub); margin-top:2px; }
+.entry-amt { font-size:15px; font-weight:700; text-align:right; flex-shrink:0; }
+.entry-amt.expense { color:var(--red); }
+.entry-amt.income { color:var(--green); }
+.entry-del { border:none; background:none; font-size:18px; cursor:pointer; color:#ccc; padding:4px; }
+.entry-del:hover { color:var(--red); }
+
+/* ───── Success flash ───── */
+.flash { position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  padding:12px 24px; border-radius:30px; color:#fff; font-weight:600; font-size:14px;
+  z-index:999; animation:flashIn .3s ease; pointer-events:none; }
+.flash.ok { background:var(--green); }
+.flash.err { background:var(--red); }
+@keyframes flashIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); }
+  to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
+/* ───── DASHBOARD ───── */
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.stat-card { background:var(--card); border-radius:var(--radius-sm); padding:14px; box-shadow:var(--shadow); }
+.stat-label { font-size:11px; font-weight:600; color:var(--sub); text-transform:uppercase; letter-spacing:.3px; }
+.stat-val { font-size:20px; font-weight:700; margin-top:4px; }
+.stat-val.inc { color:var(--green); }
+.stat-val.exp { color:var(--red); }
+.stat-val.sav { color:var(--blue); }
+
+#sankeyChart { width:100%; min-height:280px; }
+#sankeyChart svg { width:100%; }
+
+.flow-table { width:100%; border-collapse:collapse; font-size:13px; }
+.flow-table th { text-align:left; padding:8px 10px; background:var(--bg); font-weight:600;
+  color:var(--sub); font-size:11px; text-transform:uppercase; }
+.flow-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+.flow-table .amt { text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
+.flow-table .pct { text-align:right; color:var(--sub); }
+
+.cat-bar-wrap { margin-bottom:14px; }
+.cat-bar-header { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+.cat-bar-name { font-weight:600; }
+.cat-bar-amt { color:var(--sub); font-variant-numeric:tabular-nums; }
+.cat-bar-track { height:10px; background:var(--bg); border-radius:5px; overflow:visible; position:relative; }
+.cat-bar-fill { height:100%; border-radius:5px; transition:width .5s; }
+.cat-bar-budget-marker { position:absolute; top:-3px; height:16px; width:3px;
+  background:var(--text); border-radius:2px; opacity:.7; z-index:1; }
+.cat-bar-budget { font-size:11px; margin-top:4px; display:flex; justify-content:space-between; }
+.cat-bar-budget .budget-label { color:var(--sub); }
+.cat-bar-budget .budget-status { font-weight:600; }
+.cat-bar-budget .budget-status.under { color:var(--green); }
+.cat-bar-budget .budget-status.over { color:var(--red); }
+
+/* ───── BUDGET ───── */
+.quick-budget { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.quick-btn { padding:8px 14px; border-radius:20px; border:2px solid var(--primary);
+  background:var(--card); font-size:12px; font-weight:600; cursor:pointer;
+  color:var(--primary); transition:.2s; }
+.quick-btn:active { background:var(--primary); color:#fff; }
+.quick-btn.active { background:var(--primary); color:#fff; }
+.income-input-row { display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  padding:12px; background:var(--green-bg); border-radius:10px; }
+.income-input-row label { font-size:13px; font-weight:600; color:var(--green); white-space:nowrap; }
+.income-input-row input { flex:1; padding:8px 10px; border:2px solid var(--border);
+  border-radius:8px; font-size:15px; font-weight:700; text-align:right; outline:none;
+  background:var(--card); max-width:140px; }
+.income-input-row input:focus { border-color:var(--green); }
+.budget-item { display:flex; align-items:center; gap:10px; padding:10px 0;
+  border-bottom:1px solid var(--border); }
+.budget-cat { flex:1; font-size:14px; font-weight:500; min-width:0; }
+.budget-cat-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.budget-input { width:100px; padding:8px 10px; border:2px solid var(--border);
+  border-radius:8px; font-size:14px; font-weight:600; text-align:right;
+  outline:none; background:var(--card); }
+.budget-input:focus { border-color:var(--primary); }
+.budget-pct { font-size:11px; color:var(--sub); width:40px; text-align:center; }
+.save-budget-btn { width:100%; padding:14px; border:none; border-radius:var(--radius-sm);
+  background:var(--primary); color:#fff; font-size:16px; font-weight:700;
+  cursor:pointer; margin-top:14px; transition:.2s; }
+.save-budget-btn:active { transform:scale(.98); }
+.drive-badge { display:flex; align-items:center; gap:6px; padding:10px 14px;
+  background:#e8f5e9; border-radius:10px; font-size:12px; color:#2e7d32; font-weight:500;
+  margin-top:10px; cursor:pointer; }
+.drive-badge:hover { background:#c8e6c9; }
+
+/* ───── TIPS ───── */
+.tip-card { display:flex; gap:12px; padding:14px; background:var(--card);
+  border-radius:var(--radius-sm); box-shadow:var(--shadow); margin-bottom:10px; }
+.tip-icon { font-size:28px; flex-shrink:0; }
+.tip-text { font-size:14px; line-height:1.5; }
+
+/* ───── Month selector modal ───── */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4);
+  z-index:200; align-items:flex-end; justify-content:center; }
+.modal-overlay.show { display:flex; }
+.modal-sheet { background:var(--card); border-radius:20px 20px 0 0; padding:20px;
+  width:100%; max-width:480px; max-height:50vh; overflow-y:auto; }
+.modal-title { font-size:16px; font-weight:700; margin-bottom:14px; text-align:center; }
+.month-list-item { padding:12px 16px; border-radius:10px; cursor:pointer;
+  font-size:15px; font-weight:500; transition:.15s; }
+.month-list-item:hover, .month-list-item.sel { background:var(--primary); color:#fff; }
+.modal-close { width:100%; padding:12px; border:none; background:var(--bg);
+  border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; }
+
+/* ───── Empty states ───── */
+.empty-state { text-align:center; padding:40px 20px; color:var(--sub); }
+.empty-icon { font-size:48px; margin-bottom:12px; }
+.empty-text { font-size:15px; }
+
+/* ───── Misc ───── */
+.link-btn { background:none; border:none; color:var(--primary); font-size:13px;
+  font-weight:600; cursor:pointer; text-decoration:underline; }
+.date-input { padding:8px 12px; border:2px solid var(--border); border-radius:8px;
+  font-size:14px; background:var(--card); outline:none; }
+.date-input:focus { border-color:var(--primary); }
+
+/* ───── Login screen ───── */
+#loginScreen { position:fixed; inset:0; background:linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; }
+.login-card { background:#fff; border-radius:20px; padding:40px 32px; text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,.15); max-width:360px; width:90%; }
+.login-logo { font-size:56px; margin-bottom:8px; }
+.login-title { font-size:24px; font-weight:700; color:#1a1a2e; margin-bottom:4px; }
+.login-sub { font-size:14px; color:#636e72; margin-bottom:28px; }
+.google-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%;
+  padding:14px; border:2px solid #e9ecef; border-radius:12px; background:#fff; font-size:15px;
+  font-weight:600; color:#1a1a2e; cursor:pointer; transition:.2s; }
+.google-btn:hover { border-color:#6c5ce7; background:#f8f7ff; }
+.google-btn:active { transform:scale(.98); }
+.google-btn svg { width:20px; height:20px; }
+.login-footer { font-size:12px; color:rgba(255,255,255,.7); margin-top:12px; }
+
+/* ───── User bar ───── */
+.user-bar { max-width:480px; margin:0 auto; padding:8px 16px; display:flex; align-items:center;
+  justify-content:space-between; font-size:12px; color:#636e72; background:var(--card);
+  border-bottom:1px solid var(--border); }
+.user-bar .user-name { font-weight:600; color:#1a1a2e; }
+.user-bar .logout-btn { border:none; background:none; color:var(--red); font-size:11px;
+  font-weight:600; cursor:pointer; padding:2px 8px; border-radius:8px; }
+.user-bar .logout-btn:hover { background:var(--red-bg); }
+
+/* ───── Custom category form ───── */
+.custom-cat-form { padding:12px; background:var(--bg); border-radius:10px; margin-bottom:12px; }
+.custom-cat-form input, .custom-cat-form .cat-type-radio { margin-bottom:8px; width:100%; }
+.custom-cat-form input { padding:8px 12px; border:2px solid var(--border); border-radius:8px;
+  font-size:14px; background:var(--card); outline:none; }
+.custom-cat-form input:focus { border-color:var(--primary); }
+.cat-type-radio { display:flex; gap:12px; margin-bottom:8px; }
+.cat-type-radio label { display:flex; align-items:center; gap:6px; font-size:13px; }
+.custom-cat-form button { width:100%; padding:8px; background:var(--primary); color:#fff;
+  border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px; }
+
+/* ───── Date range card ───── */
+.date-range-card { display:flex; flex-direction:column; gap:12px; }
+.date-range-inputs { display:flex; gap:8px; }
+.date-range-inputs input { flex:1; padding:8px 12px; border:2px solid var(--border);
+  border-radius:8px; font-size:14px; background:var(--card); outline:none; }
+.date-range-inputs input:focus { border-color:var(--primary); }
+.date-range-inputs button { padding:8px 16px; background:var(--primary); color:#fff;
+  border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px; }
+#customReportResult { margin-top:12px; padding:12px; background:var(--bg); border-radius:8px; }
+
+</style>
+</head>
+<body>
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">💰</div>
+    <div class="login-title">MyExpense India</div>
+    <div class="login-sub">Track expenses, set budgets, get smart tips</div>
+    <button class="google-btn" onclick="mockGoogleLogin()">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+  <div class="login-footer">Your data is stored securely in Google Drive</div>
+</div>
+
+<!-- Loading -->
+<div id="loading" style="display:none"><div class="spinner"></div><span style="font-weight:600;color:var(--sub)">Loading MyExpense...</span></div>
+
+<!-- User bar -->
+<div class="user-bar" id="userBar" style="display:none"><span>Welcome, <span class="user-name" id="currentUserName"></span></span><span style="display:flex;align-items:center;gap:8px;"><span id="currentUserEmail" style="font-size:11px;color:#636e72;"></span><button class="logout-btn" onclick="logoutUser()">Logout</button><button id="installBtn" onclick="installApp()" style="display:none;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--primary);border-radius:14px;background:none;color:var(--primary);font-size:11px;font-weight:600;cursor:pointer;">&#128242; Install App</button></span></div>
+
+<!-- ═══════════ TAB 1 — LOG ═══════════ -->
+<div id="tabLog" class="section active">
+  <div class="sec-header">
+    <span class="sec-title">Log</span>
+    <button class="month-pill" onclick="openMonthModal('log')" id="logMonthPill">Mar-2026</button>
+  </div>
+
+  <div class="card">
+    <!-- Type toggle + Amount -->
+    <div class="amount-row">
+      <div class="type-toggle">
+        <button class="type-btn active-exp" id="btnExp" onclick="setType('EXPENSE')">Expense</button>
+        <button class="type-btn" id="btnInc" onclick="setType('INCOME')">Income</button>
+      </div>
+      <div class="amount-input-wrap">
+        <span class="rupee">&#8377;</span>
+        <input type="number" id="amountInput" placeholder="0" inputmode="decimal" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- Description -->
+    <input type="text" class="desc-input" id="descInput" placeholder="What did you spend on?" autocomplete="off">
+    <div class="suggest-bar" id="suggestBar"></div>
+
+    <!-- Date (defaults today) -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span class="section-label" style="margin:0">Date</span>
+      <input type="date" class="date-input" id="dateInput">
+    </div>
+
+    <!-- Category chips -->
+    <div class="section-label">Category</div>
+    <div class="cat-grid" id="catGrid"></div>
+
+    <!-- Payment mode -->
+    <div class="section-label">Payment</div>
+    <div class="pay-grid" id="payGrid"></div>
+
+    <!-- User -->
+    <div class="section-label">Entered By</div>
+    <div class="user-row" id="userRow"></div>
+
+    <!-- Notes (toggle) -->
+    <div class="notes-toggle"><button class="notes-link" onclick="toggleNotes()">+ Add notes</button></div>
+    <div id="notesWrap"><textarea id="notesInput" placeholder="Optional notes..."></textarea></div>
+
+    <!-- Add button -->
+    <button class="add-btn expense-mode" id="addBtn" onclick="submitEntry()">Add Expense</button>
+  </div>
+
+  <!-- Today's entries -->
+  <div class="today-header">
+    <span class="section-label" style="margin:0" id="todayLabel">Today's Entries</span>
+    <span class="today-total" id="todayTotal"></span>
+  </div>
+  <div class="entry-list" id="entryList"></div>
+</div>
+
+<!-- ═══════════ TAB 2 — DASHBOARD ═══════════ -->
+<div id="tabDash" class="section">
+  <div class="sec-header">
+    <span class="sec-title">Dashboard</span>
+    <button class="month-pill" onclick="openMonthModal('dash')" id="dashMonthPill">Mar-2026</button>
+  </div>
+
+  <!-- Custom Date Range Report -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="section-label">Custom Date Report</div>
+    <div class="date-range-card">
+      <div class="date-range-inputs">
+        <input type="date" id="dateRangeStart" class="date-input">
+        <input type="date" id="dateRangeEnd" class="date-input">
+        <button onclick="loadCustomReport()">View</button>
+      </div>
+      <div id="customReportResult" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Income</div><div class="stat-val inc" id="dIncome">&#8377;0</div></div>
+    <div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-val exp" id="dExpense">&#8377;0</div></div>
+    <div class="stat-card"><div class="stat-label">Savings</div><div class="stat-val sav" id="dSavings">&#8377;0</div></div>
+    <div class="stat-card"><div class="stat-label">Savings Rate</div><div class="stat-val" id="dRate">0%</div></div>
+  </div>
+
+  <!-- Sankey -->
+  <div class="card">
+    <div class="section-label">Cash Flow</div>
+    <div id="sankeyChart"></div>
+  </div>
+
+  <!-- Flow summary table -->
+  <div class="card">
+    <div class="section-label">Flow Summary</div>
+    <table class="flow-table" id="flowTable">
+      <thead><tr><th>Category</th><th class="amt">Amount (&#8377;)</th><th class="pct">%</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Category breakdown with budget bars -->
+  <div class="card">
+    <div class="section-label">Category Breakdown</div>
+    <div id="catBreakdown"></div>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 3 — BUDGET ═══════════ -->
+<div id="tabBudget" class="section">
+  <div class="sec-header">
+    <span class="sec-title">Budget</span>
+    <button class="month-pill" onclick="openMonthModal('budget')" id="budgetMonthPill">Mar-2026</button>
+  </div>
+
+  <!-- Quick Budget Setup -->
+  <div class="card">
+    <div class="section-label">Quick Setup</div>
+    <div class="income-input-row">
+      <label>&#8377; Monthly Income</label>
+      <input type="number" id="budgetIncomeInput" placeholder="0" inputmode="decimal" oninput="onBudgetIncomeChange()">
+    </div>
+    <div class="quick-budget" id="quickBudgetBtns">
+      <button class="quick-btn" onclick="applyBudgetRule('50-30-20')">50-30-20 Rule</button>
+      <button class="quick-btn" onclick="applyBudgetRule('needs-first')">Needs First</button>
+      <button class="quick-btn" onclick="applyBudgetRule('last-month')">Last Month Actuals</button>
+    </div>
+    <div id="quickBudgetHint" style="font-size:11px;color:var(--sub);margin-top:4px;"></div>
+  </div>
+
+  <!-- Budget Items -->
+  <div class="card" id="budgetCard">
+    <div class="section-label" id="budgetStatus">Loading...</div>
+    <div id="budgetList"></div>
+    <button class="save-budget-btn" onclick="saveBudget()">&#128190; Save Budget to Google Drive</button>
+    <div class="drive-badge" onclick="openDrive()">
+      <span>&#9729;&#65039;</span> All data saved securely in your Google Drive
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TAB 4 — TIPS ═══════════ -->
+<div id="tabTips" class="section">
+  <div class="sec-header">
+    <span class="sec-title">Pro Tips</span>
+    <button class="month-pill" onclick="openMonthModal('tips')" id="tipsMonthPill">Mar-2026</button>
+  </div>
+  <div id="tipsList"></div>
+
+  <div class="drive-badge" onclick="openDrive()" style="margin-top:16px;">
+    <span>&#9729;&#65039;</span> Open Google Drive Folder (All data stored here)
+  </div>
+  <div class="drive-badge" onclick="exportReport()" style="margin-top:6px;background:#e3f2fd;color:#1565c0;">
+    <span>&#128190;</span> Export Monthly Report to Drive
+  </div>
+</div>
+
+<!-- ═══════════ MONTH MODAL ═══════════ -->
+<div class="modal-overlay" id="monthModal" onclick="closeMonthModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">Select Month</div>
+    <div id="monthList"></div>
+    <button class="modal-close" onclick="closeMonthModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- ═══════════ BOTTOM NAV ═══════════ -->
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('Log',this)"><span class="nav-icon">&#9997;&#65039;</span>Log</button>
+  <button class="nav-btn" onclick="switchTab('Dash',this)"><span class="nav-icon">&#128202;</span>Dashboard</button>
+  <button class="nav-btn" onclick="switchTab('Budget',this)"><span class="nav-icon">&#127919;</span>Budget</button>
+  <button class="nav-btn" onclick="switchTab('Tips',this)"><span class="nav-icon">&#128161;</span>Tips</button>
+</div>
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════ */
+let CATS=[], currentMonth='', allMonths=[], currentType='EXPENSE',
+    selectedCat='', selectedPay='UPI', selectedUser='User1',
+    sheetUrl='', driveUrl='', monthModalTarget='log',
+    userEmail='', userName='', userNames={user1:'User 1',user2:'User 2'};
+
+const PAY_MODES=['UPI','Cash','Card','NetBanking','Wallet'];
+const COLORS=['#6c5ce7','#00b894','#e74c3c','#0984e3','#f39c12','#fd79a8',
+  '#00cec9','#e17055','#636e72','#a29bfe','#55efc4','#fab1a0',
+  '#74b9ff','#ffeaa7','#dfe6e9','#b2bec3','#81ecec','#fdcb6e'];
+
+/* ═══════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', function(){
+  setToday();
+  // Don't auto-call initApp — wait for login button click
+});
+
+/* ═══════════════════════════════════════════
+   LOGIN / LOGOUT
+   ═══════════════════════════════════════════ */
+function mockGoogleLogin() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('loading').style.display = 'flex';
+  google.script.run.withSuccessHandler(onInit).withFailureHandler(function(e){showFlash(e.message,'err');}).initApp();
+  google.script.run.withSuccessHandler(function(m){allMonths=m;}).getAvailableMonths();
+}
+
+function logoutUser() {
+  // Show login screen, hide everything else
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('userBar').style.display = 'none';
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelector('.bottom-nav').style.display = 'none';
+  // Reset state
+  CATS=[]; currentMonth=''; allMonths=[]; userEmail=''; userName='';
+}
+
+function onInit(r) {
+  document.getElementById('loading').style.display='none';
+  document.querySelector('.bottom-nav').style.display='flex';
+  document.getElementById('tabLog').classList.add('active');
+  if(!r.ok){showFlash('Init error: '+r.error,'err');return;}
+  currentMonth=r.currentMonth; sheetUrl=r.sheetUrl;
+  userEmail=r.userEmail||''; userName=r.userName||'';
+  if(userEmail && userName) {
+    document.getElementById('userBar').style.display='flex';
+    document.getElementById('currentUserName').textContent=userName;
+    document.getElementById('currentUserEmail').textContent=userEmail;
+  }
+  if(r.driveUrl) driveUrl=r.driveUrl;
+  if(r.driveName) document.querySelectorAll('.drive-folder-name').forEach(function(el){el.textContent=r.driveName;});
+  updateMonthPills();
+  google.script.run.withSuccessHandler(onUserNames).getUserNames();
+  google.script.run.withSuccessHandler(function(c){CATS=JSON.parse(c);renderCats();}).getCategoryList();
+  refreshLogEntries();
+}
+
+function setToday() {
+  var d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'),
+      dd=String(d.getDate()).padStart(2,'0');
+  document.getElementById('dateInput').value=y+'-'+m+'-'+dd;
+}
+
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+   ═══════════════════════════════════════════ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='Dash') loadDashboard();
+  if(name==='Budget') loadBudget();
+  if(name==='Tips') loadTips();
+}
+
+/* ═══════════════════════════════════════════
+   MONTH MANAGEMENT
+   ═══════════════════════════════════════════ */
+function updateMonthPills() {
+  ['logMonthPill','dashMonthPill','budgetMonthPill','tipsMonthPill'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.textContent=currentMonth;
+  });
+}
+function openMonthModal(target) {
+  monthModalTarget=target;
+  google.script.run.withSuccessHandler(function(m){
+    allMonths=m; renderMonthList();
+    document.getElementById('monthModal').classList.add('show');
+  }).getAvailableMonths();
+}
+function closeMonthModal(e) {
+  if(e && e.target!==document.getElementById('monthModal')) return;
+  document.getElementById('monthModal').classList.remove('show');
+}
+function renderMonthList() {
+  var c=document.getElementById('monthList');
+  c.innerHTML=allMonths.map(function(m){
+    return '<div class="month-list-item'+(m===currentMonth?' sel':'')+'" onclick="pickMonth(\''+m+'\')">'+m+'</div>';
+  }).join('');
+}
+function pickMonth(m) {
+  currentMonth=m; updateMonthPills(); closeMonthModal();
+  if(monthModalTarget==='log') refreshLogEntries();
+  else if(monthModalTarget==='dash') loadDashboard();
+  else if(monthModalTarget==='budget') loadBudget();
+  else if(monthModalTarget==='tips') loadTips();
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Type toggle
+   ═══════════════════════════════════════════ */
+function setType(t) {
+  currentType=t;
+  var be=document.getElementById('btnExp'), bi=document.getElementById('btnInc'),
+      ab=document.getElementById('addBtn'), di=document.getElementById('descInput');
+  if(t==='EXPENSE'){
+    be.className='type-btn active-exp'; bi.className='type-btn';
+    ab.className='add-btn expense-mode'; ab.textContent='Add Expense';
+    di.placeholder='What did you spend on?';
+  } else {
+    bi.className='type-btn active-inc'; be.className='type-btn';
+    ab.className='add-btn income-mode'; ab.textContent='Add Income';
+    di.placeholder='Income source (salary, freelance...)';
+  }
+  selectedCat=''; showAllCats=false;
+  renderCats();
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Category chips
+   ═══════════════════════════════════════════ */
+var showAllCats=false;
+function renderCats() {
+  var grid=document.getElementById('catGrid');
+  var type=currentType.toLowerCase();
+  var filtered=CATS.filter(function(c){return c.t===type;});
+  var pop=filtered.filter(function(c){return c.pop;});
+  var rest=filtered.filter(function(c){return !c.pop;});
+  var show=showAllCats?filtered:pop;
+
+  grid.innerHTML=show.map(function(c){
+    var sel=selectedCat===c.n?'selected':'';
+    return '<button class="cat-chip '+sel+'" onclick="pickCat(\''+c.n.replace(/'/g,"\\'")+'\')">' +
+      '<span class="chip-icon">'+c.i+'</span>'+c.n+'</button>';
+  }).join('');
+  if(!showAllCats && rest.length)
+    grid.innerHTML+='<button class="cat-expand" onclick="showAllCats=true;renderCats()">+'+rest.length+' more</button>';
+  if(showAllCats && rest.length)
+    grid.innerHTML+='<button class="cat-expand" onclick="showAllCats=false;renderCats()">Show less</button>';
+  grid.innerHTML+='<button class="cat-expand" style="border-style:solid;color:var(--primary);" onclick="showAddCatForm()">+ Add</button>';
+}
+function pickCat(n) { selectedCat=selectedCat===n?'':n; renderCats(); }
+
+/* ═══════════════════════════════════════════
+   LOG — Payment mode chips
+   ═══════════════════════════════════════════ */
+function renderPay() {
+  var g=document.getElementById('payGrid');
+  g.innerHTML=PAY_MODES.map(function(p){
+    return '<button class="pay-chip'+(selectedPay===p?' selected':'')+'" onclick="pickPay(\''+p+'\')">'+p+'</button>';
+  }).join('');
+}
+function pickPay(p) { selectedPay=p; renderPay(); }
+
+/* ═══════════════════════════════════════════
+   LOG — User
+   ═══════════════════════════════════════════ */
+function pickUser(btn,u) {
+  selectedUser=u;
+  document.querySelectorAll('.user-btn').forEach(function(b){b.classList.remove('selected');});
+  btn.classList.add('selected');
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Notes
+   ═══════════════════════════════════════════ */
+function toggleNotes() {
+  var w=document.getElementById('notesWrap');
+  w.style.display=w.style.display==='none'||!w.style.display?'block':'none';
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Auto-suggest category from description
+   ═══════════════════════════════════════════ */
+var suggestTimer=null;
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('descInput').addEventListener('input', function(e){
+    clearTimeout(suggestTimer);
+    var v=e.target.value.trim();
+    if(v.length<3){document.getElementById('suggestBar').style.display='none';return;}
+    suggestTimer=setTimeout(function(){
+      google.script.run.withSuccessHandler(function(r){
+        if(r.confidence!=='none'){
+          document.getElementById('suggestBar').style.display='block';
+          document.getElementById('suggestBar').innerHTML=
+            'Auto: <strong>'+r.category+'</strong> <button class="link-btn" style="margin-left:8px" onclick="applySuggest(\''+r.category.replace(/'/g,"\\'")+'\',\''+r.type+'\')">Apply</button>';
+          if(r.type==='INCOME' && currentType!=='INCOME') setType('INCOME');
+        } else { document.getElementById('suggestBar').style.display='none'; }
+      }).suggestCategory(v);
+    },400);
+  });
+  renderPay();
+});
+
+function applySuggest(cat,type) {
+  if(type && type!==currentType) setType(type);
+  selectedCat=cat; renderCats();
+  document.getElementById('suggestBar').style.display='none';
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Submit entry
+   ═══════════════════════════════════════════ */
+function submitEntry() {
+  var amt=parseFloat(document.getElementById('amountInput').value);
+  if(!amt||amt<=0){showFlash('Enter an amount','err');return;}
+  var desc=document.getElementById('descInput').value.trim();
+  var cat=selectedCat||'Miscellaneous';
+  var notes=document.getElementById('notesInput').value.trim();
+  var dateVal=document.getElementById('dateInput').value;
+
+  var btn=document.getElementById('addBtn');
+  btn.disabled=true; btn.textContent='Saving...';
+
+  var payload=JSON.stringify({
+    amount:amt, description:desc, category:cat, type:currentType,
+    paymentMode:selectedPay, notes:notes, enteredBy:selectedUser,
+    date:dateVal||null
+  });
+
+  google.script.run.withSuccessHandler(function(r){
+    btn.disabled=false;
+    btn.textContent=currentType==='EXPENSE'?'Add Expense':'Add Income';
+    if(r.success){
+      showFlash((currentType==='EXPENSE'?'Expense':'Income')+' added!','ok');
+      document.getElementById('amountInput').value='';
+      document.getElementById('descInput').value='';
+      document.getElementById('notesInput').value='';
+      selectedCat=''; renderCats();
+      document.getElementById('suggestBar').style.display='none';
+      refreshLogEntries();
+      google.script.run.withSuccessHandler(function(m){allMonths=m;}).getAvailableMonths();
+    } else showFlash(r.error||'Failed','err');
+  }).withFailureHandler(function(e){
+    btn.disabled=false;
+    btn.textContent=currentType==='EXPENSE'?'Add Expense':'Add Income';
+    showFlash(e.message,'err');
+  }).addTransaction(payload);
+}
+
+/* ═══════════════════════════════════════════
+   LOG — Refresh entries list
+   ═══════════════════════════════════════════ */
+function refreshLogEntries() {
+  google.script.run.withSuccessHandler(function(json){
+    var rows=JSON.parse(json);
+    var list=document.getElementById('entryList');
+    var totalEl=document.getElementById('todayTotal');
+    if(!rows.length){
+      list.innerHTML='<div class="empty-state"><div class="empty-icon">&#128221;</div><div class="empty-text">No entries for '+currentMonth+'</div></div>';
+      totalEl.textContent=''; return;
+    }
+    var totE=0,totI=0;
+    rows.forEach(function(r){if(r.type==='INCOME')totI+=r.amount;else totE+=r.amount;});
+    totalEl.textContent='Exp: \u20B9'+fmt(totE)+' | Inc: \u20B9'+fmt(totI);
+    document.getElementById('todayLabel').textContent=currentMonth+' Entries';
+
+    list.innerHTML=rows.map(function(r){
+      var cat=CATS.find(function(c){return c.n===r.category;});
+      var icon=cat?cat.i:'\uD83D\uDCE6';
+      var cls=r.type==='INCOME'?'income':'expense';
+      var sign=r.type==='INCOME'?'+':'-';
+      return '<div class="entry-card">' +
+        '<span class="entry-icon">'+icon+'</span>' +
+        '<div class="entry-info">' +
+          '<div class="entry-desc">'+esc(r.description||r.category)+'</div>' +
+          '<div class="entry-meta">'+r.date+' \u00B7 '+(r.paymentMode||'')+' \u00B7 '+(r.enteredBy||'')+'</div>' +
+        '</div>' +
+        '<span class="entry-amt '+cls+'">'+sign+'\u20B9'+fmt(r.amount)+'</span>' +
+        '<button class="entry-del" onclick="delEntry('+r.row+')" title="Delete">&times;</button>' +
+      '</div>';
+    }).join('');
+  }).getTransactions(currentMonth);
+}
+
+function delEntry(row) {
+  if(!confirm('Delete this entry?')) return;
+  google.script.run.withSuccessHandler(function(r){
+    if(r.success){showFlash('Deleted','ok');refreshLogEntries();}
+    else showFlash(r.error||'Failed','err');
+  }).deleteTransaction(row);
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD
+   ═══════════════════════════════════════════ */
+function loadDashboard() {
+  google.script.run.withSuccessHandler(function(json){
+    var d=JSON.parse(json);
+    if(d.error){showFlash(d.error,'err');return;}
+    document.getElementById('dIncome').innerHTML='\u20B9'+fmt(d.income);
+    document.getElementById('dExpense').innerHTML='\u20B9'+fmt(d.expenses);
+    document.getElementById('dSavings').innerHTML='\u20B9'+fmt(d.savings);
+    document.getElementById('dRate').textContent=d.savingsRate+'%';
+    drawSankey(d);
+    renderFlowTable(d);
+    renderCatBreakdown(d);
+  }).getDashboardData(currentMonth);
+}
+
+/* ── Sankey ── */
+function drawSankey(d) {
+  var container=document.getElementById('sankeyChart');
+  container.innerHTML='';
+  if(!d.income && !d.expenses){
+    container.innerHTML='<div class="empty-state"><div class="empty-icon">\uD83D\uDCCA</div><div class="empty-text">Add income & expenses to see cash flow</div></div>';
+    return;
+  }
+  var W=container.clientWidth||360;
+  var nodeCount=(d.incomeBreakdown?d.incomeBreakdown.length:0)+(d.expenseBreakdown?d.expenseBreakdown.length:0);
+  var H=Math.max(280,Math.min(500,nodeCount*36+80));
+  var nodes=[], links=[], nIdx={};
+  var idx=0;
+  function addNode(name){if(!(name in nIdx)){nIdx[name]=idx++;nodes.push({name:name});}return nIdx[name];}
+
+  var coreId=addNode('Total Income');
+  (d.incomeBreakdown||[]).forEach(function(i){
+    var s=addNode(i.category);
+    links.push({source:s,target:coreId,value:i.amount});
+  });
+  (d.expenseBreakdown||[]).forEach(function(e){
+    var t=addNode(e.category);
+    links.push({source:coreId,target:t,value:e.amount});
+  });
+  if(d.savings>0){
+    var s=addNode('Savings');
+    links.push({source:coreId,target:s,value:d.savings});
+  }
+  if(!links.length) return;
+
+  var svg=d3.select(container).append('svg').attr('width',W).attr('height',H);
+  var sankey=d3.sankey().nodeWidth(18).nodePadding(14)
+    .extent([[1,8],[W-1,H-8]])
+    .nodeSort(null);
+  var graph=sankey({
+    nodes:nodes.map(function(d){return Object.assign({},d);}),
+    links:links.map(function(d){return Object.assign({},d);})
+  });
+  var color=d3.scaleOrdinal(COLORS);
+
+  svg.append('g').selectAll('rect').data(graph.nodes).join('rect')
+    .attr('x',function(d){return d.x0;}).attr('y',function(d){return d.y0;})
+    .attr('height',function(d){return Math.max(1,d.y1-d.y0);})
+    .attr('width',function(d){return d.x1-d.x0;})
+    .attr('fill',function(d){return d.name==='Total Income'?'#2d3436':d.name==='Savings'?'#00b894':color(d.name);})
+    .attr('rx',3);
+
+  svg.append('g').attr('fill','none').selectAll('path').data(graph.links).join('path')
+    .attr('d',d3.sankeyLinkHorizontal())
+    .attr('stroke',function(d){return color(d.source.name);})
+    .attr('stroke-width',function(d){return Math.max(1,d.width);})
+    .attr('opacity',.35);
+
+  svg.append('g').selectAll('text').data(graph.nodes).join('text')
+    .attr('x',function(d){return d.x0<W/2?d.x1+6:d.x0-6;})
+    .attr('y',function(d){return (d.y0+d.y1)/2;}).attr('dy','0.35em')
+    .attr('text-anchor',function(d){return d.x0<W/2?'start':'end';})
+    .attr('font-size','11px').attr('font-weight','600').attr('fill','#2d3436')
+    .text(function(d){
+      var short=d.name.length>18?d.name.slice(0,16)+'\u2026':d.name;
+      return short+' \u20B9'+fmt(d.value);
+    });
+}
+
+/* ── Flow Table ── */
+function renderFlowTable(d) {
+  var tb=document.querySelector('#flowTable tbody');
+  var totalInc=d.income||1;
+  var rows='';
+  if(d.incomeBreakdown && d.incomeBreakdown.length){
+    rows+='<tr><td colspan="3" style="font-weight:700;background:var(--green-bg);color:var(--green)">Income</td></tr>';
+    d.incomeBreakdown.forEach(function(i){
+      rows+='<tr><td>'+i.category+'</td><td class="amt">\u20B9'+fmt(i.amount)+'</td><td class="pct">'+((i.amount/totalInc)*100).toFixed(1)+'%</td></tr>';
+    });
+  }
+  if(d.expenseBreakdown && d.expenseBreakdown.length){
+    rows+='<tr><td colspan="3" style="font-weight:700;background:var(--red-bg);color:var(--red)">Expenses</td></tr>';
+    d.expenseBreakdown.forEach(function(e){
+      rows+='<tr><td>'+e.category+'</td><td class="amt">\u20B9'+fmt(e.amount)+'</td><td class="pct">'+((e.amount/totalInc)*100).toFixed(1)+'%</td></tr>';
+    });
+  }
+  if(d.savings!==0){
+    var cls=d.savings>=0?'color:var(--green)':'color:var(--red)';
+    rows+='<tr style="font-weight:700;'+cls+'"><td>Net Savings</td><td class="amt">\u20B9'+fmt(d.savings)+'</td><td class="pct">'+d.savingsRate+'%</td></tr>';
+  }
+  tb.innerHTML=rows;
+}
+
+/* ── Category Breakdown bars with budget comparison ── */
+function renderCatBreakdown(d) {
+  var el=document.getElementById('catBreakdown');
+  if(!d.expenseBreakdown||!d.expenseBreakdown.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-text">No expenses yet</div></div>';return;
+  }
+  /* Use the larger of max actual or max budget as the 100% reference */
+  var maxVal=0;
+  d.expenseBreakdown.forEach(function(e){
+    if(e.amount>maxVal)maxVal=e.amount;
+    if(e.budget&&e.budget>maxVal)maxVal=e.budget;
+  });
+
+  el.innerHTML=d.expenseBreakdown.map(function(e,i){
+    var pct=maxVal>0?(e.amount/maxVal*100).toFixed(0):0;
+    var color=COLORS[i%COLORS.length];
+    var budgetLine='';
+    var budgetMarker='';
+
+    if(e.budget>0){
+      var diff=e.budget-e.amount;
+      var budgetPct=maxVal>0?(e.budget/maxVal*100).toFixed(0):0;
+      var usedPct=e.budget>0?((e.amount/e.budget)*100).toFixed(0):0;
+      budgetMarker='<div class="cat-bar-budget-marker" style="left:'+budgetPct+'%" title="Budget: \u20B9'+fmt(e.budget)+'"></div>';
+      var statusCls=diff>=0?'under':'over';
+      budgetLine='<div class="cat-bar-budget">' +
+        '<span class="budget-label">Budget: \u20B9'+fmt(e.budget)+' ('+usedPct+'% used)</span>' +
+        '<span class="budget-status '+statusCls+'">'+(diff>=0?'\u2705 \u20B9'+fmt(diff)+' left':'\uD83D\uDED1 \u20B9'+fmt(Math.abs(diff))+' over')+'</span>' +
+      '</div>';
+    } else {
+      budgetLine='<div class="cat-bar-budget"><span class="budget-label" style="color:var(--orange)">No budget set</span></div>';
+    }
+
+    return '<div class="cat-bar-wrap">' +
+      '<div class="cat-bar-header"><span class="cat-bar-name">'+e.category+'</span><span class="cat-bar-amt">\u20B9'+fmt(e.amount)+'</span></div>' +
+      '<div class="cat-bar-track">'+budgetMarker+'<div class="cat-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
+      budgetLine+'</div>';
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   BUDGET
+   ═══════════════════════════════════════════ */
+function loadBudget() {
+  google.script.run.withSuccessHandler(function(b){
+    var el=document.getElementById('budgetList');
+    var status=document.getElementById('budgetStatus');
+    var expCats=CATS.filter(function(c){return c.t==='expense';});
+
+    if(b.empty && b.suggested && b.suggested.length){
+      status.textContent="Pre-filled from last month's actuals. Adjust & save.";
+      el.innerHTML=b.suggested.map(function(s){return budgetRow(s.category,s.amount);}).join('');
+      var suggested=b.suggested;
+      var missing=expCats.filter(function(c){return !suggested.find(function(s){return s.category===c.n;});});
+      el.innerHTML+=missing.map(function(c){return budgetRow(c.n,0);}).join('');
+    } else if(!b.empty){
+      status.textContent='Budget set for '+b.month;
+      var bMap={}; b.budget.forEach(function(x){bMap[x.category]=x.amount;});
+      el.innerHTML=expCats.map(function(c){return budgetRow(c.n,bMap[c.n]||0);}).join('');
+    } else {
+      status.textContent='No budget yet. Enter amounts below.';
+      el.innerHTML=expCats.map(function(c){return budgetRow(c.n,0);}).join('');
+    }
+  }).getBudget(currentMonth);
+}
+
+function budgetRow(cat,amt) {
+  var catObj=CATS.find(function(c){return c.n===cat;});
+  var icon=catObj?catObj.i:'\uD83D\uDCE6';
+  return '<div class="budget-item">' +
+    '<span style="font-size:18px">'+icon+'</span>' +
+    '<span class="budget-cat">'+cat+'</span>' +
+    '<input class="budget-input" type="number" inputmode="decimal" data-cat="'+cat+'" value="'+(amt||'')+'" placeholder="0">' +
+  '</div>';
+}
+
+function saveBudget() {
+  var inputs=document.querySelectorAll('.budget-input');
+  var items=[]; inputs.forEach(function(inp){
+    var amt=parseFloat(inp.value)||0;
+    if(amt>0) items.push({category:inp.dataset.cat,amount:amt});
+  });
+  google.script.run.withSuccessHandler(function(r){
+    if(r.success) showFlash('Budget saved to Google Drive!','ok');
+    else showFlash(r.error||'Failed','err');
+  }).saveBudget(currentMonth,JSON.stringify(items));
+}
+
+function onBudgetIncomeChange() {
+  /* just store it — quick buttons use it */
+}
+
+/* Quick budget rule presets */
+function applyBudgetRule(rule) {
+  var income=parseFloat(document.getElementById('budgetIncomeInput').value)||0;
+  var hint=document.getElementById('quickBudgetHint');
+
+  /* Highlight active button */
+  document.querySelectorAll('.quick-btn').forEach(function(b){b.classList.remove('active');});
+  event.target.classList.add('active');
+
+  if(rule==='last-month'){
+    hint.textContent='Loading last month actuals...';
+    loadBudget(); /* existing function loads from backend */
+    hint.textContent='Loaded from last month. Adjust amounts and save.';
+    return;
+  }
+
+  if(!income||income<=0){
+    showFlash('Enter your monthly income first','err');
+    return;
+  }
+
+  var allocations={};
+  if(rule==='50-30-20'){
+    /* 50% needs, 30% wants, 20% savings */
+    hint.innerHTML='<strong>50-30-20</strong>: 50% needs (\u20B9'+fmt(income*0.5)+'), 30% wants (\u20B9'+fmt(income*0.3)+'), 20% savings (\u20B9'+fmt(income*0.2)+')';
+    allocations={
+      'Rent':income*0.25, 'Groceries/Kirana':income*0.08, 'Electricity Bill':income*0.03,
+      'Mobile Recharge':income*0.01, 'Petrol/Diesel':income*0.05, 'Medical/Pharmacy':income*0.03,
+      'EMI/Loan Payment':income*0.05,
+      'Online Food Delivery':income*0.05, 'Eating Out/Restaurant':income*0.05,
+      'Online Shopping':income*0.08, 'Movie/Entertainment':income*0.04,
+      'Auto/Cab/Ola/Uber':income*0.04, 'Subscriptions (OTT/Apps)':income*0.02,
+      'Personal Care/Salon':income*0.02,
+      'Investments/SIP':income*0.20
+    };
+  } else if(rule==='needs-first'){
+    /* Prioritise needs: 60% essentials, rest flexible */
+    hint.innerHTML='<strong>Needs First</strong>: 60% essentials, 25% flexible, 15% savings';
+    allocations={
+      'Rent':income*0.30, 'Groceries/Kirana':income*0.10, 'Electricity Bill':income*0.03,
+      'Mobile Recharge':income*0.01, 'Petrol/Diesel':income*0.06,
+      'Medical/Pharmacy':income*0.04, 'EMI/Loan Payment':income*0.06,
+      'Online Food Delivery':income*0.04, 'Eating Out/Restaurant':income*0.03,
+      'Online Shopping':income*0.06, 'Auto/Cab/Ola/Uber':income*0.04,
+      'Movie/Entertainment':income*0.03, 'Subscriptions (OTT/Apps)':income*0.02,
+      'Personal Care/Salon':income*0.02, 'Clothing & Footwear':income*0.01,
+      'Investments/SIP':income*0.15
+    };
+  }
+
+  /* Apply to budget inputs — round to nearest 100 */
+  var inputs=document.querySelectorAll('.budget-input');
+  inputs.forEach(function(inp){
+    var cat=inp.dataset.cat;
+    if(allocations[cat]) inp.value=Math.round(allocations[cat]/100)*100;
+  });
+  showFlash('Budget pre-filled! Review & save.','ok');
+}
+
+/* ═══════════════════════════════════════════
+   TIPS
+   ═══════════════════════════════════════════ */
+function loadTips() {
+  google.script.run.withSuccessHandler(function(s){
+    var el=document.getElementById('tipsList');
+    if(!s.tips||!s.tips.length){
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">\uD83D\uDCA1</div><div class="empty-text">Log some expenses to get personalised tips!</div></div>';
+      return;
+    }
+    el.innerHTML=s.tips.map(function(t){
+      return '<div class="tip-card"><span class="tip-icon">'+t.icon+'</span><span class="tip-text">'+t.tip+'</span></div>';
+    }).join('');
+  }).getMonthlySummary(currentMonth);
+}
+
+/* ═══════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════ */
+function fmt(n){return Math.round(n).toLocaleString('en-IN');}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function openSheet(){if(sheetUrl)window.open(sheetUrl,'_blank');}
+function openDrive(){if(driveUrl)window.open(driveUrl,'_blank');else if(sheetUrl)window.open(sheetUrl,'_blank');}
+function exportReport(){
+  showFlash('Exporting report to Drive...','ok');
+  google.script.run.withSuccessHandler(function(r){
+    if(r.success) showFlash('Report saved to Google Drive!','ok');
+    else showFlash('Export error: '+(r.error||'Unknown'),'err');
+  }).withFailureHandler(function(e){showFlash('Export failed: '+e.message,'err');}).exportMonthlyReport(currentMonth);
+}
+
+function onUserNames(r) {
+  userNames = r;
+  renderUserBtns();
+}
+
+function renderUserBtns() {
+  var row = document.getElementById('userRow');
+  row.innerHTML = '<button class="user-btn selected" onclick="pickUser(this,\'User1\')" id="userBtn1">' +
+    userNames.user1 + ' <button class="link-btn" style="margin-left:4px;padding:0;" onclick="editUserName(\'user1\',event)">✎</button>' +
+    '</button>' +
+    '<button class="user-btn" onclick="pickUser(this,\'User2\')" id="userBtn2">' +
+    userNames.user2 + ' <button class="link-btn" style="margin-left:4px;padding:0;" onclick="editUserName(\'user2\',event)">✎</button>' +
+    '</button>';
+  if(selectedUser==='User1') document.getElementById('userBtn1').classList.add('selected');
+  if(selectedUser==='User2') document.getElementById('userBtn2').classList.add('selected');
+}
+
+function editUserName(which, e) {
+  if(e) e.stopPropagation();
+  var current = which==='user1' ? userNames.user1 : userNames.user2;
+  var newName = prompt('Edit '+(which==='user1'?'User 1':'User 2')+' name:', current);
+  if(newName && newName.trim()) {
+    if(which==='user1') userNames.user1 = newName.trim();
+    else userNames.user2 = newName.trim();
+    google.script.run.withSuccessHandler(function(r){
+      if(r.success) {
+        showFlash('Name updated','ok');
+        renderUserBtns();
+      } else showFlash(r.error||'Failed','err');
+    }).saveUserNames(JSON.stringify(userNames));
+  }
+}
+
+function showAddCatForm() {
+  var container = document.getElementById('catGrid').parentElement;
+  if(document.getElementById('customCatForm')) return;
+  var form = document.createElement('div');
+  form.id = 'customCatForm';
+  form.className = 'custom-cat-form';
+  form.innerHTML = '<input type="text" id="catName" placeholder="Category name (e.g., Coffee)" style="margin-bottom:8px;">' +
+    '<input type="text" id="catIcon" placeholder="Icon/Emoji (e.g., ☕)" style="margin-bottom:8px;">' +
+    '<div class="cat-type-radio"><label><input type="radio" name="catType" value="expense" checked> Expense</label>' +
+    '<label><input type="radio" name="catType" value="income"> Income</label></div>' +
+    '<button onclick="saveCustomCat()">Save Category</button>' +
+    '<button onclick="hideAddCatForm()" style="background:#ccc;color:#000;margin-top:6px;">Cancel</button>';
+  container.appendChild(form);
+}
+
+function hideAddCatForm() {
+  var form = document.getElementById('customCatForm');
+  if(form) form.remove();
+}
+
+function saveCustomCat() {
+  var name = document.getElementById('catName').value.trim();
+  var icon = document.getElementById('catIcon').value.trim();
+  var type = document.querySelector('input[name="catType"]:checked').value;
+  if(!name || !icon) { showFlash('Enter name and icon','err'); return; }
+  google.script.run.withSuccessHandler(function(r){
+    if(r.success) {
+      showFlash('Category added!','ok');
+      hideAddCatForm();
+      google.script.run.withSuccessHandler(function(c){CATS=JSON.parse(c);renderCats();}).getCategoryList();
+    } else showFlash(r.error||'Failed','err');
+  }).addCustomCategory(JSON.stringify({name:name,icon:icon,type:type}));
+}
+
+function loadCustomReport() {
+  var start = document.getElementById('dateRangeStart').value;
+  var end = document.getElementById('dateRangeEnd').value;
+  if(!start || !end) { showFlash('Select both dates','err'); return; }
+  google.script.run.withSuccessHandler(function(json){
+    var d = JSON.parse(json);
+    if(d.error) { showFlash(d.error,'err'); return; }
+    var result = document.getElementById('customReportResult');
+    var html = '<div style="margin-bottom:12px;"><strong>'+d.dateRange+'</strong></div>' +
+      '<div class="stat-grid" style="grid-template-columns:1fr 1fr; gap:10px;">' +
+      '<div class="stat-card"><div class="stat-label">Income</div><div class="stat-val inc">₹'+fmt(d.income)+'</div></div>' +
+      '<div class="stat-card"><div class="stat-label">Expenses</div><div class="stat-val exp">₹'+fmt(d.expenses)+'</div></div>' +
+      '</div>' +
+      '<div style="padding:10px;background:var(--bg);border-radius:8px;margin-bottom:10px;">' +
+      '<div style="font-weight:600;margin-bottom:6px;">Savings: ₹'+fmt(d.savings)+'</div>' +
+      '<div style="font-size:13px;color:var(--sub);">Savings Rate: '+d.savingsRate+'%</div></div>';
+    if(d.expenseBreakdown && d.expenseBreakdown.length) {
+      html += '<div style="font-weight:600;margin:10px 0 8px;">Expense Categories:</div>';
+      d.expenseBreakdown.forEach(function(e){
+        html += '<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border);">' +
+          '<span>'+e.category+'</span><span>₹'+fmt(e.amount)+'</span></div>';
+      });
+    }
+    if(d.incomeBreakdown && d.incomeBreakdown.length) {
+      html += '<div style="font-weight:600;margin:10px 0 8px;">Income Categories:</div>';
+      d.incomeBreakdown.forEach(function(i){
+        html += '<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border);">' +
+          '<span>'+i.category+'</span><span>₹'+fmt(i.amount)+'</span></div>';
+      });
+    }
+    result.innerHTML = html;
+    result.style.display = 'block';
+  }).getDashboardDataByDateRange(start, end);
+}
+
+function showFlash(msg,type) {
+  var el=document.createElement('div');
+  el.className='flash '+(type||'ok'); el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();},2500);
+}
+
+/* ═══════════════════════════════════════════
+   PWA — Service Worker + Install Prompt
+   ═══════════════════════════════════════════ */
+var deferredInstallPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(function(reg) {
+    console.log('SW registered:', reg.scope);
+  }).catch(function(err) {
+    console.log('SW registration skipped:', err.message);
+  });
+}
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  var btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'flex';
+});
+
+function installApp() {
+  if (!deferredInstallPrompt) {
+    showFlash('Open in Chrome browser to install', 'err');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(function(result) {
+    if (result.outcome === 'accepted') showFlash('App installed!', 'ok');
+    deferredInstallPrompt = null;
+    var btn = document.getElementById('installBtn');
+    if (btn) btn.style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', function() {
+  showFlash('MyExpense India installed!', 'ok');
+  var btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+});
+</script>
+</body>
+</html>

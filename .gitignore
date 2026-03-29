@@ -1,0 +1,20 @@
+# Old/draft test files (not needed)
+Test_MyExpense.html
+Test_MyExpense_FIXED.html
+TEST_INSTRUCTIONS.md
+statement_preview.html
+SETUP.txt
+
+# Keep Test_MyExpense_COMPLETE.html — used by Streamlit app
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
